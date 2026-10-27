@@ -1,0 +1,84 @@
+import asyncio
+import json
+from aiogram import Bot, Dispatcher, F
+from aiogram.types import (
+    Message,
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    WebAppInfo
+)
+from aiogram.filters import CommandStart
+
+# === НАСТРОЙКИ ===
+BOT_TOKEN = "8827035926:AAFaJn6r33GEwLwGwIDb0PR-wbssloHKx-w"
+ADMIN_ID = 7991617863
+WEBAPP_URL = "https://@InterioMhk_bot.github.io/catalog/"
+
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher()
+
+
+@dp.message(CommandStart())
+async def cmd_start(message: Message):
+    # Важно: для передачи данных через tg.sendData() используется Reply-кнопка
+    kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                KeyboardButton(
+                    text="📱 Открыть каталог",
+                    web_app=WebAppInfo(url=WEBAPP_URL)
+                )
+            ]
+        ],
+        resize_keyboard=True
+    )
+
+    await message.answer(
+        "👋 Здравствуйте!\n\n"
+        "Нажмите кнопку <b>«📱 Открыть каталог»</b> внизу экрана, "
+        "чтобы полистать наши работы, посмотреть цены и оставить заявку на расчёт.",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
+
+
+# Обработчик заявки из Mini App
+@dp.message(F.web_app_data)
+async def handle_webapp_data(message: Message):
+    data = json.loads(message.web_app_data.data)
+
+    title = data.get("title")
+    category = data.get("category")
+    price = data.get("price")
+    comment = data.get("comment")
+
+    # 1. Ответ клиенту
+    await message.answer(
+        f"✅ <b>Заявка принята!</b>\n\n"
+        f"Вы выбрали: <b>{title}</b> ({price})\n"
+        f"Комментарий: <i>{comment}</i>\n\n"
+        f"Мы скоро свяжемся с вами в чате для точного расчёта!",
+        parse_mode="HTML"
+    )
+
+    # 2. Уведомление вам (владельцу)
+    username = f"@{message.from_user.username}" if message.from_user.username else "нет юзернейма"
+    admin_text = (
+        f"🔥 <b>Новая заявка из каталога!</b>\n\n"
+        f"👤 <b>Клиент:</b> {message.from_user.full_name} ({username})\n"
+        f"🆔 <b>ID:</b> <code>{message.from_user.id}</code>\n"
+        f"📂 <b>Категория:</b> {category}\n"
+        f"🛋 <b>Позиция:</b> {title}\n"
+        f"💰 <b>Цена в каталоге:</b> {price}\n"
+        f"💬 <b>Пожелания/размеры:</b> {comment}"
+    )
+
+    await bot.send_message(chat_id=ADMIN_ID, text=admin_text, parse_mode="HTML")
+
+
+async def main():
+    print("Бот запущен...")
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
