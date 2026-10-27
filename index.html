@@ -1,84 +1,296 @@
-import asyncio
-import json
-from aiogram import Bot, Dispatcher, F
-from aiogram.types import (
-    Message,
-    ReplyKeyboardMarkup,
-    KeyboardButton,
-    WebAppInfo
-)
-from aiogram.filters import CommandStart
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Каталог</title>
+  <!-- Скрипт Telegram Mini App -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Библиотека Swiper для плавного свайпа слайдов -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 
-# === НАСТРОЙКИ ===
-BOT_TOKEN = "8827035926:AAFaJn6r33GEwLwGwIDb0PR-wbssloHKx-w"
-ADMIN_ID = 7991617863
-WEBAPP_URL = "https://@InterioMhk_bot.github.io/catalog/"
+  <style>
+    :root {
+      --bg-color: #121316;
+      --card-bg: #1e2026;
+      --accent: #d4a373;
+      --text-main: #ffffff;
+      --text-muted: #9aa0a6;
+    }
 
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
 
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
 
-@dp.message(CommandStart())
-async def cmd_start(message: Message):
-    # Важно: для передачи данных через tg.sendData() используется Reply-кнопка
-    kb = ReplyKeyboardMarkup(
-        keyboard=[
-            [
-                KeyboardButton(
-                    text="📱 Открыть каталог",
-                    web_app=WebAppInfo(url=WEBAPP_URL)
-                )
-            ]
-        ],
-        resize_keyboard=True
-    )
+    /* Категории сверху */
+    .categories {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .categories::-webkit-scrollbar { display: none; }
 
-    await message.answer(
-        "👋 Здравствуйте!\n\n"
-        "Нажмите кнопку <b>«📱 Открыть каталог»</b> внизу экрана, "
-        "чтобы полистать наши работы, посмотреть цены и оставить заявку на расчёт.",
-        reply_markup=kb,
-        parse_mode="HTML"
-    )
+    .cat-btn {
+      background: var(--card-bg);
+      color: var(--text-muted);
+      border: 1px solid #2e313a;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 500;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .cat-btn.active {
+      background: var(--accent);
+      color: #121316;
+      border-color: var(--accent);
+      font-weight: 600;
+    }
 
+    /* Слайдер */
+    .swiper {
+      width: 100%;
+      flex: 1;
+      padding: 8px 16px 28px 16px;
+    }
 
-# Обработчик заявки из Mini App
-@dp.message(F.web_app_data)
-async def handle_webapp_data(message: Message):
-    data = json.loads(message.web_app_data.data)
+    .swiper-slide {
+      background: var(--card-bg);
+      border-radius: 20px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid #2c2f38;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+    }
 
-    title = data.get("title")
-    category = data.get("category")
-    price = data.get("price")
-    comment = data.get("comment")
+    .slide-img {
+      width: 100%;
+      height: 48%;
+      object-fit: cover;
+      background: #2a2d35;
+    }
 
-    # 1. Ответ клиенту
-    await message.answer(
-        f"✅ <b>Заявка принята!</b>\n\n"
-        f"Вы выбрали: <b>{title}</b> ({price})\n"
-        f"Комментарий: <i>{comment}</i>\n\n"
-        f"Мы скоро свяжемся с вами в чате для точного расчёта!",
-        parse_mode="HTML"
-    )
+    .slide-content {
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      justify-content: space-between;
+    }
 
-    # 2. Уведомление вам (владельцу)
-    username = f"@{message.from_user.username}" if message.from_user.username else "нет юзернейма"
-    admin_text = (
-        f"🔥 <b>Новая заявка из каталога!</b>\n\n"
-        f"👤 <b>Клиент:</b> {message.from_user.full_name} ({username})\n"
-        f"🆔 <b>ID:</b> <code>{message.from_user.id}</code>\n"
-        f"📂 <b>Категория:</b> {category}\n"
-        f"🛋 <b>Позиция:</b> {title}\n"
-        f"💰 <b>Цена в каталоге:</b> {price}\n"
-        f"💬 <b>Пожелания/размеры:</b> {comment}"
-    )
+    .badge {
+      display: inline-block;
+      background: rgba(212, 163, 115, 0.15);
+      color: var(--accent);
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      width: fit-content;
+    }
 
-    await bot.send_message(chat_id=ADMIN_ID, text=admin_text, parse_mode="HTML")
+    .slide-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
 
+    .slide-specs {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
 
-async def main():
-    print("Бот запущен...")
-    await dp.start_polling(bot)
+    .slide-footer {
+      border-top: 1px solid #2e313a;
+      padding-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
 
-if __name__ == "__main__":
-    asyncio.run(main())
+    .price {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .comment-input {
+      width: 100%;
+      background: #14161a;
+      border: 1px solid #2e313a;
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: #fff;
+      font-size: 13px;
+      outline: none;
+    }
+    .comment-input:focus {
+      border-color: var(--accent);
+    }
+
+    .order-btn {
+      background: var(--accent);
+      color: #121316;
+      border: none;
+      border-radius: 12px;
+      padding: 13px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      width: 100%;
+      transition: opacity 0.2s;
+    }
+    .order-btn:active {
+      opacity: 0.85;
+    }
+
+    /* Точки пагинации внизу */
+    .swiper-pagination-bullet { background: #fff; opacity: 0.3; }
+    .swiper-pagination-bullet-active { background: var(--accent); opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <!-- Кнопки категорий -->
+  <div class="categories" id="categories"></div>
+
+  <!-- Слайдер -->
+  <div class="swiper" id="catalogSwiper">
+    <div class="swiper-wrapper" id="slidesWrapper"></div>
+    <div class="swiper-pagination"></div>
+  </div>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.expand(); // Раскрываем окно на всю высоту
+
+    // === БАЗА СЛАЙДОВ (здесь легко менять и добавлять свои позиции) ===
+    const catalogData = [
+      {
+        id: "1",
+        category: "Кухни",
+        title: "Кухня «Лофт Графит»",
+        specs: "• Фасады: МДФ эмаль матовая / шпон дуба\n• Фурнитура: с доводчиками\n• Индивидуальные размеры под ваше помещение",
+        price: "от 145 000 ₽",
+        image: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "2",
+        category: "Кухни",
+        title: "Кухня «Сканди Беж»",
+        specs: "• Фасады: АГТ панель софт-тач\n• Встроенная LED-подсветка рабочей зоны\n• Срок изготовления: от 14 дней",
+        price: "от 130 000 ₽",
+        image: "https://images.unsplash.com/photo-1556909212-d5b604d0c90d?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "3",
+        category: "Шкафы",
+        title: "Встроенный шкаф в потолок",
+        specs: "• Корпус: ЛДСП Egger 16 мм\n• Фасады: МДФ фрезеровка + зеркало\n• Наполнение проектируется под вас",
+        price: "от 75 000 ₽",
+        image: "https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=800&q=80"
+      },
+      {
+        id: "4",
+        category: "Гардеробные",
+        title: "Гардеробная система «Модерн»",
+        specs: "• Выдвижные ящики полного выдвижения\n• Пантографы и подсветка полок\n• Точный замер и 3D-проект",
+        price: "от 95 000 ₽",
+        image: "https://images.unsplash.com/photo-1558997519-83ea9252edf8?auto=format&fit=crop&w=800&q=80"
+      }
+    ];
+
+    const categories = ["Все", ...new Set(catalogData.map(item => item.category))];
+    let currentCategory = "Все";
+    let swiperInstance = null;
+
+    function renderCategories() {
+      const container = document.getElementById("categories");
+      container.innerHTML = categories.map(cat => `
+        <button class="cat-btn ${cat === currentCategory ? 'active' : ''}" onclick="selectCategory('${cat}')">
+          ${cat}
+        </button>
+      `).join("");
+    }
+
+    function renderSlides() {
+      const wrapper = document.getElementById("slidesWrapper");
+      const filtered = currentCategory === "Все"
+        ? catalogData
+        : catalogData.filter(item => item.category === currentCategory);
+
+      wrapper.innerHTML = filtered.map(item => `
+        <div class="swiper-slide">
+          <img class="slide-img" src="${item.image}" alt="${item.title}">
+          <div class="slide-content">
+            <div>
+              <div class="badge">${item.category}</div>
+              <div class="slide-title">${item.title}</div>
+              <div class="slide-specs">${item.specs.replace(/\n/g, '<br>')}</div>
+            </div>
+            <div class="slide-footer">
+              <div class="price">${item.price}</div>
+              <input type="text" id="comment-${item.id}" class="comment-input" placeholder="Ваши размеры или пожелания (необязательно)">
+              <button class="order-btn" onclick="sendOrder('${item.id}')">
+                Рассчитать стоимость / Заказать
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join("");
+
+      if (swiperInstance) swiperInstance.destroy(true, true);
+      swiperInstance = new Swiper("#catalogSwiper", {
+        spaceBetween: 16,
+        pagination: { el: ".swiper-pagination", clickable: true }
+      });
+    }
+
+    function selectCategory(cat) {
+      currentCategory = cat;
+      renderCategories();
+      renderSlides();
+    }
+
+    function sendOrder(itemId) {
+      const item = catalogData.find(i => i.id === itemId);
+      const comment = document.getElementById(`comment-${itemId}`).value.trim();
+
+      const payload = {
+        title: item.title,
+        category: item.category,
+        price: item.price,
+        comment: comment || "Без комментария"
+      };
+
+      // Отправляем данные обратно в Telegram-бота
+      tg.sendData(JSON.stringify(payload));
+    }
+
+    renderCategories();
+    renderSlides();
+  </script>
+</body>
+</html>
